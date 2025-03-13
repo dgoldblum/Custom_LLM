@@ -100,3 +100,50 @@ class PositionalEncoder(tf.keras.layers.layers):
     pos_encodings[:, 1::2] = np.cos(positions * div_const)
 
     return tf.convert_to_tensor(pos_encodings, dtype=tf.float32)
+
+
+### Multi-Head Attention Mechanism
+class MultiHeadAttn:
+  def __init__(self, em_dims, n_splits):
+    """ 
+    Computes self-attention of split values at each head in parallel.
+
+    Args:
+      em_dims: embeddings dimensions
+      n_splits: number of times the embedings should be split for attention computation/number of heads
+    Returns:
+    """
+    super(MultiHeadAttn, self).__init__()
+    assert(em_dims % n_splits == 0)
+    self.em_dims = em_dims
+    self.n_splits = n_splits
+    self.q_size = em_dims // n_splits
+
+    weights_q = tf.layers.Linear(em_dims)
+    weights_v = tf.layers.Linear(em_dims)
+    weights_k = tf.layers.Linear(em_dims)
+
+    output = tf.layers.Linear(em_dims)
+
+    def split_heads(self, tensor, batch_size):
+      """
+      Splits embeddings into tensors for each head to compute.
+      
+      Args:
+        tensor: an input tensor of dims (batch_size, seq_length, em_dims)
+        batch_size: size of dim 1 of tensor
+      Returns:
+        tensor of dims (batch_size, num_heads, seq_length, q_size)
+      """
+
+      x = tf.reshape(x, (batch_size, -1, self.n_splts, self.q_size))
+      #Splits embeddings dims into heads x query_size
+      return tf.transpose(x, perm = [0, 2, 1 ,3]) #Transposes since we want number of heads earlier in matrix for computation
+  
+  def scaled_dot_product(self, query, value, key):
+    """
+    Computes scaled dot product of the heads and c
+    
+    """
+
+    
