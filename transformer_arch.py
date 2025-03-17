@@ -140,10 +140,44 @@ class MultiHeadAttn:
       #Splits embeddings dims into heads x query_size
       return tf.transpose(x, perm = [0, 2, 1 ,3]) #Transposes since we want number of heads earlier in matrix for computation
   
-  def scaled_dot_product(self, query, value, key):
+  def scaled_dot_product(self, query, value, key, mask=None):
     """
     Computes scaled dot product of the heads and c
-    
+
+    Args:
+      query: query matrix (features of interest)
+      value: value matrix (embeddings values)
+      key: key matrix (mask collections)
+      mask: apply mask if passed in
+
+    Returns:
+      Attention scored tensor and attention weights
+
     """
+
+    numerator = query@key.T
+    denom = np.sqrt(self.q_size)
+
+    func_term = numerator/denom
+    if mask != None:
+      func_term += (mask* -1e9)
+
+    attn_weights = tf.nn.softmax(func_term)
+
+    return attn_weights, attn_weights@value
+
+  def forward_call(self, query, value, key, mask=None):
+    """
+    Executes a forward call of the multihead attention mechanism
+
+    Args:
+      query: 
+    """
+
+  
+
+
+
+
 
     
