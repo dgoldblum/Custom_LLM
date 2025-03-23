@@ -123,7 +123,7 @@ class MultiHeadAttn:
     weights_v = tf.layers.Linear(em_dims)
     weights_k = tf.layers.Linear(em_dims)
 
-    output = tf.layers.Linear(em_dims)
+    output_layer = tf.layers.Linear(em_dims)
 
     def split_heads(self, tensor, batch_size):
       """
@@ -148,7 +148,7 @@ class MultiHeadAttn:
       query: query matrix (features of interest)
       value: value matrix (embeddings values)
       key: key matrix (mask collections)
-      mask: apply mask if passed in
+      mask: mask to apply if passed in
 
     Returns:
       Attention scored tensor and attention weights
@@ -171,10 +171,33 @@ class MultiHeadAttn:
     Executes a forward call of the multihead attention mechanism
 
     Args:
-      query: 
-    """
+      query: query matrix (features of interest)
+      value: vlaue matrix (embeddings values)
+      key: key matrix (mask collections)
+      mask: mask to apply if passed in
 
+    Returns:
+      matrix of size batch x sequence length x embedding dimensions with contextualized embeddings
+    """
+    q = self. weights_q(query)
+    v = self.weights_v(value)
+    k = self.weights_k(key)
+
+    batch_size = np.shape(q)[0]
+
+    split_q = self.split_heads(q, batch_size)
+    split_v = self.split_heads(v, batch_size)
+    split_k = self.split_heads(k, batch_size)
+
+    attn_weights, attn_mtx = self.scaled_dot_product(split_q, split_v, split_k, mask)
+
+    attn_weights = tf.transpose(attn_weights, perm=[0, 2, 1, 3])
+    attn_weights = tf.concat(attn_weights, (batch_size, -1, self.em_dims))
+
+    return self.output_layer(attn_weights)
   
+
+
 
 
 

@@ -28,3 +28,17 @@ samp_input = tf.zeros((1,max_length, em_dims))
 encoded_in = post_enc_layer(samp_input)
 
 print('Input Shape:', encoded_in.shape)
+
+
+### Self Attn Test
+batch_size = 2
+seq_length = 5
+d_model = 512
+num_heads = 8
+
+sample_msa = arch.MultiHeadSelfAttention(d_model, num_heads)
+
+x = tf.random.uniform((batch_size, seq_length, d_model))
+
+output = sample_msa(x, x, x)
+print("Output shape:", output.shape)
