@@ -67,7 +67,7 @@ class Tokenizer:
 
 
 ### Positional Encoder
-class PositionalEncoder(tf.keras.layers.layers):
+class PositionalEncoder(tf.keras.layers.Layer):
   def __init__(self, max_length: int, em_dims: int):
     """
     Positional Encoding TF custom layer
@@ -103,7 +103,7 @@ class PositionalEncoder(tf.keras.layers.layers):
 
 
 ### Multi-Head Attention Mechanism
-class MultiHeadAttn:
+class MultiHeadAttn(tf.keras.layers.Layer):
   def __init__(self, em_dims, n_splits):
     """ 
     Computes self-attention of split values at each head in parallel.
@@ -166,7 +166,7 @@ class MultiHeadAttn:
 
     return attn_weights, attn_weights@value
 
-  def forward_call(self, query, value, key, mask=None):
+  def call(self, query, value, key, mask=None):
     """
     Executes a forward call of the multihead attention mechanism
 
@@ -198,7 +198,7 @@ class MultiHeadAttn:
   
 
 ### Feed Forward Network Layer
-class FFN:
+class FFN(tf.keras.layers.Layer):
   def __init__(self, em_dims: int, ff_dims: int):
     """
     Creates feedforward network layer
@@ -212,16 +212,12 @@ class FFN:
     super(FFN, self).__init__()
     self.em_dims = em_dims
     self.ff_dims = ff_dims
-    ###Check where to put dimensions (args)
-    self.dense = tf.layers.Linear(em_dims, ff_dims)  #Expands model dimensionality
 
-    self.activation = tf.keras.layers.relu(ff_dims)
-    #self.norm = tf.keras.normiliztaion(em_dims) 
-    
-    ###Again check args
-    self.dense_rev = tf.layers.Linear(ff_dims, em_dims)    #Shrinks back to tensor dimensionality
+    self.dense = tf.keras.layers.Dense(ff_dims)  #Expands model dimensionality
+    self.activation = tf.keras.layers.ReLU()    
+    self.dense_rev = tf.keras.layers.Dense(em_dims)    #Shrinks back to tensor dimensionality
 
-  def forward_call(self, tensor):
+  def call(self, tensor):
     """
     Executes a forward call of the FFN layer
 
@@ -234,17 +230,13 @@ class FFN:
 
     expanded = self.dense(tensor)
     expanded = self.activation(expanded)
-    reg_dims = self.dense_rev(expanded)
-
-    #normed = self.norm(reg_dims)
-
-    return tensor   #+normed
+    return self.dense_rev(expanded)
   
 
 
 ### Seperate Add+Norm layer rather than built into FFN or MH_ATTN
-class Add_Norm():
-  def __init__(self, em_dims):
+class Add_Norm(tf.keras.layers.Layer):
+  def __init__(self):
     """
     Skip conneciton layer. Adds input to normalized multi-headed attention outputs of FNN outputs
 
@@ -254,10 +246,9 @@ class Add_Norm():
     Returns:
     """
     super(Add_Norm, self).__init__()
-    self.em_dims = em_dims
-    norm_layer = tf.keras.normilization(em_dims)
+    self.norm_layer = tf.keras.layers.LayerNormalization(epsilon=1e-6)
 
-  def forward_call(self, input_tensor, operated_tensor):
+  def call(self, input_tensor, operated_tensor):
     """
     Executres call for add and norm layer.
 
@@ -269,7 +260,7 @@ class Add_Norm():
       smoothed embeddings tensor
     """  
 
-    return self.norm(operated_tensor + input_tensor)
+    return self.norm_layer(operated_tensor + input_tensor)
  
 
   

@@ -1,6 +1,7 @@
 import transformer_arch as arch
 import numpy as np
 import tensorflow as tf
+import blocks as bk
 
 
 ##Tokenizer Test
@@ -42,3 +43,60 @@ x = tf.random.uniform((batch_size, seq_length, em_dims))
 
 output = sample_msa(x, x, x)
 print("Output shape:", output.shape)
+
+
+
+
+### FFN Tester:
+em_dims = 512
+ff_dims = 2048
+batch_size = 2
+seq_length = 10
+
+ffn_layer = arch.FFN(em_dims, ff_dims)
+test_tensor = tf.random.uniform((batch_size, seq_length, em_dims))
+
+output_tensor = ffn_layer(test_tensor)
+print("Output shape:", output_tensor.shape)
+
+
+
+### Add & Norm Tester:
+batch_size, seq_length, em_dims = 2, 10, 512
+input_tensor = tf.random.uniform((batch_size, seq_length, em_dims))
+operated_tensor = tf.random.uniform((batch_size, seq_length, em_dims))
+
+add_norm_layer = arch.Add_Norm()
+output_tensor = add_norm_layer(input_tensor, operated_tensor)
+
+print("Output shape:", output_tensor.shape)
+
+
+
+### Encoder Block Tester:
+batch_size = 2
+seq_length = 10
+em_dims = 512
+n_heads = 8
+
+encoder_block = bk.EncoderBlock(em_dims, n_heads)
+test_input = tf.random.uniform((batch_size, seq_length, em_dims))
+
+output = encoder_block(test_input)
+print("Encoder block output shape:", output.shape)
+
+
+### Decoder Block Tester:
+batch_size = 2
+seq_length = 10
+em_dims = 512
+n_heads = 8
+
+decoder_block = bk.DecoderBlock(em_dims, n_heads)
+
+decoder_input = tf.random.uniform((batch_size, seq_length, em_dims))
+encoder_input = tf.random.uniform((batch_size, seq_length, em_dims))
+mask = tf.ones((batch_size, 1, seq_length, seq_length))  # Example mask
+
+output = decoder_block(decoder_input, encoder_input, mask)
+print("Decoder block output shape:", output.shape)

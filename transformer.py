@@ -25,7 +25,7 @@ class Transformer():
         self.out_pos_enc = arch.PositionalEncoder(128, self.output_dims)
 
         self.linear_layer = tf.layers.Linear(self.output_dims)
-        self.softmax = 
+        self.softmax = tf.nn.softmax()
 
 
 
