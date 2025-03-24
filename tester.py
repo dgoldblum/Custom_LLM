@@ -33,12 +33,12 @@ print('Input Shape:', encoded_in.shape)
 ### Self Attn Test
 batch_size = 2
 seq_length = 5
-d_model = 512
+em_dims = 512
 num_heads = 8
 
-sample_msa = arch.MultiHeadSelfAttention(d_model, num_heads)
+sample_msa = arch.MultiHeadSelfAttention(em_dims, num_heads)
 
-x = tf.random.uniform((batch_size, seq_length, d_model))
+x = tf.random.uniform((batch_size, seq_length, em_dims))
 
 output = sample_msa(x, x, x)
 print("Output shape:", output.shape)

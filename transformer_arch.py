@@ -125,7 +125,7 @@ class MultiHeadAttn:
 
     output_layer = tf.layers.Linear(em_dims)
 
-    def split_heads(self, tensor, batch_size):
+    def split_heads(self, tensor, batch_size: int):
       """
       Splits embeddings into tensors for each head to compute.
       
@@ -197,6 +197,82 @@ class MultiHeadAttn:
     return self.output_layer(attn_weights)
   
 
+### Feed Forward Network Layer
+class FFN:
+  def __init__(self, em_dims: int, ff_dims: int):
+    """
+    Creates feedforward network layer
+
+    Args:
+      em_dims: embedding dimensions
+      ff_dims: dimensions for the dense layers
+    
+    Returns:
+    """
+    super(FFN, self).__init__()
+    self.em_dims = em_dims
+    self.ff_dims = ff_dims
+    ###Check where to put dimensions (args)
+    self.dense = tf.layers.Linear(em_dims, ff_dims)  #Expands model dimensionality
+
+    self.activation = tf.keras.layers.relu(ff_dims)
+    #self.norm = tf.keras.normiliztaion(em_dims) 
+    
+    ###Again check args
+    self.dense_rev = tf.layers.Linear(ff_dims, em_dims)    #Shrinks back to tensor dimensionality
+
+  def forward_call(self, tensor):
+    """
+    Executes a forward call of the FFN layer
+
+    Args:
+      tensor: input tensor for network call
+
+    Returns:
+      normalized tensor of input dimensions 
+    """
+
+    expanded = self.dense(tensor)
+    expanded = self.activation(expanded)
+    reg_dims = self.dense_rev(expanded)
+
+    #normed = self.norm(reg_dims)
+
+    return tensor   #+normed
+  
+
+
+### Seperate Add+Norm layer rather than built into FFN or MH_ATTN
+class Add_Norm():
+  def __init__(self, em_dims):
+    """
+    Skip conneciton layer. Adds input to normalized multi-headed attention outputs of FNN outputs
+
+    Args:
+      em_dims: embeddings dimensions
+    
+    Returns:
+    """
+    super(Add_Norm, self).__init__()
+    self.em_dims = em_dims
+    norm_layer = tf.keras.normilization(em_dims)
+
+  def forward_call(self, input_tensor, operated_tensor):
+    """
+    Executres call for add and norm layer.
+
+    Args:
+      input_tensor: embeddings tensor before FFN or MH_ATTN computation
+      operated_tensor: embeddings tensor that has been passed though the FFN or MH_ATTN
+
+    Returns:
+      smoothed embeddings tensor
+    """  
+
+    return self.norm(operated_tensor + input_tensor)
+ 
+
+  
 
 
 
