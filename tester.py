@@ -37,7 +37,7 @@ seq_length = 5
 em_dims = 512
 num_heads = 8
 
-sample_msa = arch.MultiHeadSelfAttention(em_dims, num_heads)
+sample_msa = arch.MultiHeadAttn(em_dims, num_heads)
 
 x = tf.random.uniform((batch_size, seq_length, em_dims))
 

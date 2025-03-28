@@ -100,7 +100,21 @@ class PositionalEncoder(tf.keras.layers.Layer):
     pos_encodings[:, 1::2] = np.cos(positions * div_const)
 
     return tf.convert_to_tensor(pos_encodings, dtype=tf.float32)
-
+  
+  def call(self, inputs):
+      """
+      Adds positional encodings to input embeddings.
+      
+      Args:
+          inputs: Input tensor of shape (batch_size, seq_length, em_dims)
+      Returns:
+          Tensor of same shape as inputs with positional encodings added
+      """
+      
+      seq_length = tf.shape(inputs)[1]
+      pe_slice = self.pe[:seq_length, :]
+      
+      return inputs + pe_slice
 
 ### Multi-Head Attention Mechanism
 class MultiHeadAttn(tf.keras.layers.Layer):
@@ -152,8 +166,9 @@ class MultiHeadAttn(tf.keras.layers.Layer):
 
     """
 
-    numerator = query@key.T
-    denom = np.sqrt(self.q_size)
+    numerator = tf.matmul(query, key, transpose_b=True)
+    denom = tf.sqrt(tf.cast(self.q_size, tf.float32))
+
 
     func_term = numerator/denom
     if mask != None:
@@ -161,7 +176,7 @@ class MultiHeadAttn(tf.keras.layers.Layer):
 
     attn_weights = tf.nn.softmax(func_term)
 
-    return attn_weights, attn_weights@value
+    return attn_weights, tf.matmul(attn_weights, value)
 
   def call(self, query, value, key, mask=None):
     """
@@ -180,7 +195,7 @@ class MultiHeadAttn(tf.keras.layers.Layer):
     v = self.weights_v(value)
     k = self.weights_k(key)
 
-    batch_size = np.shape(q)[0]
+    batch_size = tf.shape(q)[0]
 
     split_q = self.split_heads(q, batch_size)
     split_v = self.split_heads(v, batch_size)
@@ -188,10 +203,10 @@ class MultiHeadAttn(tf.keras.layers.Layer):
 
     attn_weights, attn_mtx = self.scaled_dot_product(split_q, split_v, split_k, mask)
 
-    attn_weights = tf.transpose(attn_weights, perm=[0, 2, 1, 3])
-    attn_weights = tf.concat(attn_weights, (batch_size, -1, self.em_dims))
+    attn_mtx = tf.transpose(attn_mtx, perm=[0, 2, 1, 3])
+    attn_mtx = tf.reshape(attn_mtx, (batch_size, -1, self.em_dims))
 
-    return self.output_layer(attn_weights)
+    return self.output_layer(attn_mtx)
   
 
 ### Feed Forward Network Layer
