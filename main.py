@@ -43,11 +43,19 @@ tokenizer = Tokenizer(max_length=128)
 def prepare_data(texts):
     inputs, outputs = [], []
     for text in texts:
-        token_ids = tokenizer.encode(text)
-        if len(token_ids) < 2:
-            continue  # Skip too short
-        inputs.append(token_ids[:-1])   # e.g., [CLS] A cat sat
-        outputs.append(token_ids[1:])   # e.g.,     A cat sat [EOS]
+        if not text or not isinstance(text, str):
+            continue
+        try:
+            token_ids = tokenizer.encode(text)
+            if len(token_ids) < 2:
+                continue  # Skip too short
+            inputs.append(token_ids[:-1])   # e.g., [CLS] A cat sat
+            outputs.append(token_ids[1:])   # e.g.,     A cat sat [EOS]
+        except Exception as e:
+            print(f"Error processing text: {e}")
+            continue
+    if not inputs or not outputs:
+        raise ValueError("No valid data found after preprocessing")
     return tf.data.Dataset.from_tensor_slices((inputs, outputs))
 
 train_dataset = prepare_data(train_texts).shuffle(1000).batch(64)

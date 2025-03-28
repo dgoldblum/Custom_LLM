@@ -96,8 +96,12 @@ class Transformer(tf.keras.Model):
         return model
 
     # Loss function for CLM and MLM
-    def hybrid_loss(self, real, pred, mask):
+    def hybrid_loss(self, real, pred):
         loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False, reduction='none')
+
+        # Create mask for padding tokens (assuming 0 is padding token)
+        mask = tf.math.logical_not(tf.math.equal(real, 0))
+        mask = tf.cast(mask, dtype=tf.float32)
 
         mlm_loss = loss_object(real, pred)
         mlm_loss *= mask
@@ -135,61 +139,61 @@ class Transformer(tf.keras.Model):
         return loss
 
 def train(self, train_data, val_data, epochs=50, batch_size=64, d_model=128, warmup_steps=4000, patience=5, save_every=5):
-    # Use custom learning rate schedule
-    learning_rate = TransformerLRSchedule(d_model=d_model, warmup_steps=warmup_steps)
-    optimizer = tf.keras.optimizers.Adam(learning_rate)
+        # Use custom learning rate schedule
+        learning_rate = TransformerLRSchedule(d_model=d_model, warmup_steps=warmup_steps)
+        optimizer = tf.keras.optimizers.Adam(learning_rate)
 
-    best_val_loss = float('inf')
-    patience_counter = 0
+        best_val_loss = float('inf')
+        patience_counter = 0
 
-    for epoch in range(epochs):
-        total_loss, total_acc = 0, 0
-        steps = 0
+        for epoch in range(epochs):
+            total_loss, total_acc = 0, 0
+            steps = 0
 
-        # Training loop
-        for (inputs, outputs) in train_data.batch(batch_size):
-            loss, acc = self.train_step(inputs, outputs, self, optimizer)
-            total_loss += loss
-            total_acc += acc
-            steps += 1
+            # Training loop
+            for (inputs, outputs) in train_data.batch(batch_size):
+                loss, acc = self.train_step(inputs, outputs, optimizer)
+                total_loss += loss
+                total_acc += acc
+                steps += 1
 
-        train_loss = total_loss / steps
-        train_acc = total_acc / steps
+            train_loss = total_loss / steps
+            train_acc = total_acc / steps
 
-        # Validation loop
-        val_loss, val_acc = 0, 0
-        steps = 0
-        for (val_inputs, val_outputs) in val_data.batch(batch_size):
-            predictions = self.call(val_inputs, val_outputs[:, :-1])
-            val_loss += self.hybrid_loss(val_outputs[:, 1:], predictions)
-            val_acc += self.hybrid_accuracy(val_outputs[:, 1:], predictions)
-            steps += 1
+            # Validation loop
+            val_loss, val_acc = 0, 0
+            steps = 0
+            for (val_inputs, val_outputs) in val_data.batch(batch_size):
+                predictions = self.call(val_inputs, val_outputs[:, :-1])
+                val_loss += self.hybrid_loss(val_outputs[:, 1:], predictions)
+                val_acc += self.masked_accuracy(val_outputs[:, 1:], predictions)
+                steps += 1
 
-        val_loss /= steps
-        val_acc /= steps
+            val_loss /= steps
+            val_acc /= steps
 
-        print(f"Epoch {epoch+1}/{epochs} — Loss: {train_loss:.4f}, Acc: {train_acc:.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
+            print(f"Epoch {epoch+1}/{epochs} — Loss: {train_loss:.4f}, Acc: {train_acc:.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
 
-        # Early stopping
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            self.save_weights('best_transformer_model.h5')
-            patience_counter = 0
-        else:
-            patience_counter += 1
+            # Early stopping
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                self.save_weights('best_transformer_model.h5')
+                patience_counter = 0
+            else:
+                patience_counter += 1
 
-        # Save periodic checkpoint every "save_every" epochs
-        if (epoch + 1) % save_every == 0:
-            checkpoint_path = f"transformer_checkpoint_epoch_{epoch+1}.h5"
-            self.save_weights(checkpoint_path)
-            print(f"Checkpoint saved at {checkpoint_path}")
+            # Save periodic checkpoint every "save_every" epochs
+            if (epoch + 1) % save_every == 0:
+                checkpoint_path = f"transformer_checkpoint_epoch_{epoch+1}.h5"
+                self.save_weights(checkpoint_path)
+                print(f"Checkpoint saved at {checkpoint_path}")
 
-        if patience_counter >= patience:
-            print("Early stopping triggered.")
-            break
+            if patience_counter >= patience:
+                print("Early stopping triggered.")
+                break
 
-    # Load best model weights
-    self.load_weights('best_transformer_model.h5')
+        # Load best model weights
+        self.load_weights('best_transformer_model.h5')
 
 
 

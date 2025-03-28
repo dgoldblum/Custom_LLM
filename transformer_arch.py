@@ -92,7 +92,7 @@ class PositionalEncoder(tf.keras.layers.Layer):
         Positional encodings tensor
     """
 
-    positions = np.arrange(max_length)[:, None]
+    positions = np.arange(max_length)[:, None]
     div_const = np.exp(np.arange(0, em_dims, 2) * (-np.log(10000.0) / em_dims))    ### Uses log properties for rearanging ## uses 10,000 from Attention is All You Need
 
     pos_encodings = np.zeros((max_length, em_dims))
@@ -119,27 +119,24 @@ class MultiHeadAttn(tf.keras.layers.Layer):
     self.n_splits = n_splits
     self.q_size = em_dims // n_splits
 
-    weights_q = tf.layers.Linear(em_dims)
-    weights_v = tf.layers.Linear(em_dims)
-    weights_k = tf.layers.Linear(em_dims)
+    self.weights_q = tf.keras.layers.Dense(em_dims)
+    self.weights_v = tf.keras.layers.Dense(em_dims)
+    self.weights_k = tf.keras.layers.Dense(em_dims)
+    self.output_layer = tf.keras.layers.Dense(em_dims)
 
-    output_layer = tf.layers.Linear(em_dims)
+  def split_heads(self, tensor, batch_size: int):
+    """
+    Splits embeddings into tensors for each head to compute.
+    
+    Args:
+      tensor: an input tensor of dims (batch_size, seq_length, em_dims)
+      batch_size: size of dim 1 of tensor
+    Returns:
+      tensor of dims (batch_size, num_heads, seq_length, q_size)
+    """
+    x = tf.reshape(tensor, (batch_size, -1, self.n_splits, self.q_size))
+    return tf.transpose(x, perm=[0, 2, 1, 3])
 
-    def split_heads(self, tensor, batch_size: int):
-      """
-      Splits embeddings into tensors for each head to compute.
-      
-      Args:
-        tensor: an input tensor of dims (batch_size, seq_length, em_dims)
-        batch_size: size of dim 1 of tensor
-      Returns:
-        tensor of dims (batch_size, num_heads, seq_length, q_size)
-      """
-
-      x = tf.reshape(x, (batch_size, -1, self.n_splts, self.q_size))
-      #Splits embeddings dims into heads x query_size
-      return tf.transpose(x, perm = [0, 2, 1 ,3]) #Transposes since we want number of heads earlier in matrix for computation
-  
   def scaled_dot_product(self, query, value, key, mask=None):
     """
     Computes scaled dot product of the heads and c
@@ -179,7 +176,7 @@ class MultiHeadAttn(tf.keras.layers.Layer):
     Returns:
       matrix of size batch x sequence length x embedding dimensions with contextualized embeddings
     """
-    q = self. weights_q(query)
+    q = self.weights_q(query)
     v = self.weights_v(value)
     k = self.weights_k(key)
 
