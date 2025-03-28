@@ -3,7 +3,7 @@ import blocks as bk
 import transformer_arch as arch
 import time
 
-class Transformer():
+class Transformer(tf.keras.Model):
     def __init__(self, input_dims, output_dims, n_enc, n_dec, d_model=128, n_heads=8, ff_dim=2048, tie_weights=False):
         """
         Initializes the Transformer model with encoder and decoder stacks.
@@ -63,12 +63,12 @@ class Transformer():
         mask = tf.linalg.band_part(tf.ones((seq_len, seq_len)), -1, 0)
         return mask  # Upper triangular mask
 
-    def transformer_lr_schedule(self, d_model, warmup_steps=4000):
-        def lr(step):
-            arg1 = step ** -0.5
-            arg2 = step * (warmup_steps ** -1.5)
-            return (d_model ** -0.5) * min(arg1, arg2)
-        return tf.keras.optimizers.schedules.LearningRateSchedule(lr)
+    # def transformer_lr_schedule(self, d_model, warmup_steps=4000):
+    #     def lr(step):
+    #         arg1 = step ** -0.5
+    #         arg2 = step * (warmup_steps ** -1.5)
+    #         return (d_model ** -0.5) * min(arg1, arg2)
+    #     return tf.keras.optimizers.schedules.LearningRateSchedule(lr)
     
     def build(self, input_shape):
         """
@@ -95,14 +95,25 @@ class Transformer():
         model = tf.keras.Model(inputs=[inputs, outputs], outputs=self.call(inputs, outputs))
         return model
 
-    # Loss function with padding mask
-    def masked_loss(self, real, pred):
-        loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
-        mask = tf.math.logical_not(tf.math.equal(real, 0))
-        loss = loss_object(real, pred)
-        mask = tf.cast(mask, dtype=loss.dtype)
-        loss *= mask
-        return tf.reduce_sum(loss) / tf.reduce_sum(mask)
+    # Loss function for CLM and MLM
+    def hybrid_loss(self, real, pred, mask):
+        loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False, reduction='none')
+
+        mlm_loss = loss_object(real, pred)
+        mlm_loss *= mask
+        mlm_loss = tf.reduce_sum(mlm_loss) / tf.reduce_sum(mask)
+
+        clm_loss = loss_object(real[:, :-1], pred[:, 1:])
+        clm_loss = tf.reduce_mean(clm_loss)
+
+        return 0.3*mlm_loss + 0.7*clm_loss
+
+        #Masked Loss function
+        # mask = tf.math.logical_not(tf.math.equal(real, 0))
+        # loss = loss_object(real, pred)
+        # mask = tf.cast(mask, dtype=loss.dtype)
+        # loss *= mask
+        # return tf.reduce_sum(loss) / tf.reduce_sum(mask)
 
     # Accuracy with padding mask
     def masked_accuracy(self, real, pred):
@@ -123,7 +134,9 @@ class Transformer():
         optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         return loss
 
-def train(self, train_data, val_data, epochs=50, batch_size=64, learning_rate=1e-4, patience=5, save_every=5):
+def train(self, train_data, val_data, epochs=50, batch_size=64, d_model=128, warmup_steps=4000, patience=5, save_every=5):
+    # Use custom learning rate schedule
+    learning_rate = TransformerLRSchedule(d_model=d_model, warmup_steps=warmup_steps)
     optimizer = tf.keras.optimizers.Adam(learning_rate)
 
     best_val_loss = float('inf')
@@ -148,8 +161,8 @@ def train(self, train_data, val_data, epochs=50, batch_size=64, learning_rate=1e
         steps = 0
         for (val_inputs, val_outputs) in val_data.batch(batch_size):
             predictions = self.call(val_inputs, val_outputs[:, :-1])
-            val_loss += self.masked_loss(val_outputs[:, 1:], predictions)
-            val_acc += self.masked_accuracy(val_outputs[:, 1:], predictions)
+            val_loss += self.hybrid_loss(val_outputs[:, 1:], predictions)
+            val_acc += self.hybrid_accuracy(val_outputs[:, 1:], predictions)
             steps += 1
 
         val_loss /= steps
@@ -165,7 +178,7 @@ def train(self, train_data, val_data, epochs=50, batch_size=64, learning_rate=1e
         else:
             patience_counter += 1
 
-            # Save periodic checkpoint every "save_every" epochs
+        # Save periodic checkpoint every "save_every" epochs
         if (epoch + 1) % save_every == 0:
             checkpoint_path = f"transformer_checkpoint_epoch_{epoch+1}.h5"
             self.save_weights(checkpoint_path)
@@ -178,3 +191,16 @@ def train(self, train_data, val_data, epochs=50, batch_size=64, learning_rate=1e
     # Load best model weights
     self.load_weights('best_transformer_model.h5')
 
+
+
+class TransformerLRSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
+    def __init__(self, d_model, warmup_steps=4000):
+        super().__init__()
+        self.d_model = tf.cast(d_model, tf.float32)
+        self.warmup_steps = warmup_steps
+
+    def __call__(self, step):
+        step = tf.cast(step, tf.float32)
+        arg1 = tf.math.rsqrt(step)
+        arg2 = step * (self.warmup_steps ** -1.5)
+        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
