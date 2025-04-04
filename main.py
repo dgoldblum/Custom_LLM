@@ -9,12 +9,16 @@ from datasets import load_dataset
 
 
 
-print("Available GPUs:", tf.config.experimental.list_physical_devices('GPU'))
-if not tf.config.experimental.list_physical_devices('GPU'):
-    raise RuntimeError("No GPU detected! Ensure that ROCm and the correct drivers are installed.")
+# print("Available GPUs:", tf.config.experimental.list_physical_devices('GPU'))
+# if not tf.config.experimental.list_physical_devices('GPU'):
+#     raise RuntimeError("No GPU detected! Ensure that ROCm and the correct drivers are installed.")
 
 # Set mixed precision for better performance
-tf.keras.mixed_precision.set_global_policy("mixed_float16")
+tf.keras.mixed_precision.set_global_policy("mixed_float32")
+tf.config.optimizer.set_jit(True)
+
+tf.config.threading.set_intra_op_parallelism_threads(6)
+tf.config.threading.set_inter_op_parallelism_threads(6)
 
 # Training Parameters
 INPUT_DIMS = 128
@@ -27,8 +31,6 @@ FF_DIM = 2048
 BATCH_SIZE = 64
 EPOCHS = 20
 LEARNING_RATE = 5e-4
-
-#f = dd.read_parquet("hf://datasets/Locutusque/UltraTextbooks/data/train-*.parquet")
 
 
 dataset = load_dataset("wikitext", "wikitext-103-raw-v1")
@@ -61,6 +63,10 @@ def prepare_data(texts):
 train_dataset = prepare_data(train_texts).shuffle(1000).batch(64)
 val_dataset = prepare_data(val_texts).batch(64)
 
+AUTOTUNE = tf.data.AUTOTUNE
+train_dataset = train_dataset.prefetch(AUTOTUNE)
+val_dataset = val_dataset.prefetch(AUTOTUNE)
+
 transformer = Transformer(
     input_dims=INPUT_DIMS,
     output_dims=OUTPUT_DIMS,
@@ -76,8 +82,10 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE)
 loss_fn = transformer.hybrid_loss
 metric = transformer.masked_accuracy
 
+
+sample_batch = next(iter(train_dataset.take(1)))
 model = transformer.create_model(
-    input_shape=train_dataset[0].shape, output_shape=train_dataset[1].shape
+    input_shape=sample_batch[0].shape, output_shape=sample_batch[1].shape
 )
 model.compile(optimizer=optimizer, loss=loss_fn, metrics=[metric])
 
